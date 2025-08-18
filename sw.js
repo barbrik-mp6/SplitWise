@@ -1,15 +1,15 @@
-// This service worker uses a "cache-first" strategy for offline functionality.
-const CACHE_NAME = 'splitease-cache-v2'; // Incremented cache version
+// Service Worker with cache-first strategy
+const CACHE_NAME = 'splitease-cache-v3'; // bump version on updates
 const ASSETS_TO_CACHE = [
   './',
-  'index.html',
-  'app.js',
-  'manifest.json'
-  // Note: Do not cache external resources like Google Fonts here.
-  // The browser handles caching them effectively.
+  './index.html',
+  './app.js',
+  './manifest.json',
+  './icons/192.png',
+  './icons/512.png'
 ];
 
-// Install event: fires when the service worker is first installed.
+// Install event: cache core assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -18,9 +18,10 @@ self.addEventListener('install', event => {
         return cache.addAll(ASSETS_TO_CACHE);
       })
   );
+  self.skipWaiting(); // activate immediately
 });
 
-// Activate event: fires after installation. Used for cleaning up old caches.
+// Activate event: clear old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -37,22 +38,14 @@ self.addEventListener('activate', event => {
   return self.clients.claim();
 });
 
-// Fetch event: fires for every network request made by the page.
+// Fetch event: serve from cache first, then network
 self.addEventListener('fetch', event => {
-  // We only want to handle GET requests for our cache-first strategy.
-  if (event.request.method !== 'GET') {
-    return;
-  }
-  
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
-        // If the request is in the cache, return the cached response.
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        // If it's not in the cache, fetch it from the network.
-        return fetch(event.request);
+        return cachedResponse || fetch(event.request);
       })
   );
 });
