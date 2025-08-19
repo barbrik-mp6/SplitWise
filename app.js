@@ -112,10 +112,9 @@
     
     if (state.trips.length === 0) {
       $('empty-state').classList.remove('hidden');
-      return;
+    } else {
+        $('empty-state').classList.add('hidden');
     }
-    
-    $('empty-state').classList.add('hidden');
     
     state.trips.forEach(trip => {
       const li = document.createElement('li');
@@ -408,6 +407,72 @@
     save();
     render();
   };
+
+  /* ---------- Data Import / Export Handlers ---------- */
+  
+  $('export-json-btn').onclick = () => {
+    const trip = state.trips.find(t => t.id === state.activeTripId);
+    if (!trip) return;
+    const blob = new Blob([JSON.stringify(trip, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${trip.name.replace(/\s+/g, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('JSON data exported.');
+  };
+  
+  $('export-csv-btn').onclick = () => {
+    const trip = state.trips.find(t => t.id === state.activeTripId);
+    if (!trip) return;
+    let csvContent = "Date,Description,Category,Amount,Currency,Payer,Split Type,Participants/Shares\r\n";
+    trip.expenses.forEach(ex => {
+        const payer = trip.members.find(m => m.id === ex.payerId)?.name || 'N/A';
+        const description = `"${ex.description.replace(/"/g, '""')}"`;
+        let participants;
+        if (ex.splitType === 'equal') {
+            participants = ex.participantIds.map(pid => trip.members.find(m => m.id === pid)?.name || 'N/A').join('; ');
+        } else {
+            participants = Object.entries(ex.shares).map(([id, amount]) => `${trip.members.find(m=>m.id===id)?.name}: ${amount}`).join('; ');
+        }
+        const row = [ex.date, description, ex.category, ex.amount, trip.currency, payer, ex.splitType, `"${participants}"`].join(',');
+        csvContent += row + "\r\n";
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('CSV data exported.');
+  };
+
+  $('import-json-btn').onclick = () => $('import-file').click();
+  
+  $('import-file').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.name || !data.currency || !Array.isArray(data.members) || !Array.isArray(data.expenses)) {
+          throw new Error('Invalid file structure.');
+        }
+        // Basic validation for imported data can be added here
+        const newId = uuid();
+        state.trips.push({ ...data, id: newId });
+        save();
+        renderDashboard();
+        toast('Group imported successfully!');
+      } catch (err) {
+        toast('Invalid or corrupted JSON file.', 'error');
+        console.error("Import error:", err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
   
   /* ---------- App Initialization ---------- */
   load();
@@ -422,4 +487,4 @@
     });
   }
 })();
-        
+                                                                          
