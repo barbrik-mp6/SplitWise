@@ -109,6 +109,11 @@
           <button id="create-trip-btn">Create Group</button>
         </form>
       </div>
+      <div class="card">
+        <h2>Import Group</h2>
+        <button id="import-json-btn" class="secondary">Import from JSON File</button>
+        <input id="import-file" type="file" accept="application/json" class="hidden" />
+      </div>
     </section>
 
     <section id="trip-view" class="hidden">
@@ -173,8 +178,11 @@
 
       <div class="card">
         <h3>Manage Group</h3>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
            <button id="view-expenses-btn">View All Expenses</button>
+           <button id="export-json-btn" class="secondary">Export to JSON</button>
+           <button id="export-csv-btn" class="secondary">Export to CSV</button>
+           <hr style="border: none; border-top: 1px solid var(--border-light); margin: 0.5rem 0;">
            <button id="delete-trip-btn" class="danger">Delete This Group</button>
         </div>
       </div>
@@ -194,4 +202,5 @@
   <div id="toast-container"></div>
   <script src="app.js"></script>
 </body>
-</html>
+  </html>
+  
