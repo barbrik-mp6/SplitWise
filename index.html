@@ -3,50 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SplitEase - AI-Powered Expense Splitter</title>
+  <title>SplitEase - Expense Splitter</title>
 
-  <!-- PWA Manifest and Theme Color -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#00a884" />
-  <meta name="description" content="A simple, offline-first web app to split expenses among a group, now with AI assistance." />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="description" content="A simple, offline-first web app to split expenses among a group." />
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Styles -->
   <style>
     :root {
-      --bg-light: #f0f2f5;
+      --bg-light: #f7f7f8;
       --card-light: #ffffff;
       --text-light: #111827;
       --border-light: #e5e7eb;
-      --primary: #00a884;
-      --primary-hover: #00896b;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
       --secondary: #6b7280;
       --secondary-hover: #4b5563;
       --danger: #ef4444;
       --danger-hover: #dc2626;
-      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
       --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-
     [data-theme=dark] {
-      --bg-light: #111b21;
-      --card-light: #202c33;
-      --text-light: #e9edef;
+      --bg-light: #111827;
+      --card-light: #1f2937;
+      --text-light: #f9fafb;
       --border-light: #374151;
-      --primary: #00a884;
-      --primary-hover: #00896b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: var(--bg-light);
       color: var(--text-light);
@@ -54,314 +46,152 @@
       line-height: 1.6;
       transition: background-color 0.3s, color 0.3s;
     }
-
-    .container {
-      max-width: 900px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2.5rem;
-      padding: 0 0.5rem;
-    }
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-    }
-
-    h2 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid var(--border-light);
-    }
-    
-    h3 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
-
+    .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    h1 { font-size: 2rem; font-weight: 700; }
+    h2 { font-size: 1.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; }
+    h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; }
     button, input, select {
-      font-family: var(--font-family);
-      font-size: 1rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border-light);
-      padding: 0.85rem;
-      transition: all 0.2s ease-in-out;
-      background-color: var(--card-light);
-      color: var(--text-light);
+      font-family: var(--font-family); font-size: 1rem; border-radius: 0.5rem;
+      border: 1px solid var(--border-light); padding: 0.75rem;
+      transition: all 0.2s ease-in-out; background-color: var(--card-light); color: var(--text-light);
       width: 100%;
     }
-    
-    input:focus, select:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.2);
-    }
-
-    button {
-      background-color: var(--primary);
-      color: #ffffff;
-      cursor: pointer;
-      font-weight: 600;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-
-    button:hover {
-      background-color: var(--primary-hover);
-    }
-    
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    
-    .spinner {
-        width: 1rem;
-        height: 1rem;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-top-color: #fff;
-        border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-
-    .theme-toggle {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 0.5rem;
-        width: auto;
-    }
-
+    input:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    button { background-color: var(--primary); color: #ffffff; cursor: pointer; font-weight: 600; border: none; }
+    button:hover { background-color: var(--primary-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .theme-toggle { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0.5rem; width: auto; }
     .secondary { background-color: var(--secondary); }
     .secondary:hover { background-color: var(--secondary-hover); }
     .danger { background-color: var(--danger); }
     .danger:hover { background-color: var(--danger-hover); }
-
-    .card {
-      background-color: var(--card-light);
-      border: 1px solid var(--border-light);
-      border-radius: 0.75rem;
-      padding: 1.75rem;
-      margin-bottom: 1.5rem;
-      box-shadow: var(--shadow);
-    }
-
-    ul {
-      list-style: none;
-    }
-    
-    li {
-        padding: 0.85rem 0.25rem;
-        border-bottom: 1px solid var(--border-light);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    li:last-child {
-        border-bottom: none;
-    }
-
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .hidden { display: none; }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 2rem;
-      transform: translateX(-50%);
-      background-color: #202c33;
-      color: #e9edef;
-      border: 1px solid var(--border-light);
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
-      animation: toast-in 0.3s ease forwards;
-    }
-    
-    .toast.error {
-        background-color: #fef2f2;
-        color: #991b1b;
-        border-color: #fecaca;
-    }
-
-    @keyframes toast-in {
-      from { opacity: 0; transform: translate(-50%, 10px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
-    }
-
-    /* Responsive Grid Layouts */
-    .desktop-grid {
-        display: grid;
-        gap: 1.5rem;
-    }
-
-    @media (min-width: 820px) {
-        .desktop-grid {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 2fr 1.5fr;
-            gap: 1.5rem;
-        }
-        
-        #create-trip-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-        
-        #add-member-form {
-             display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 1rem;
-        }
-
-        #create-trip-form button, #add-member-form button {
-            grid-column: 1 / -1;
-        }
-
-        #add-expense-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        #ai-expense-input, #parse-expense-btn, #expense-desc, #expense-participants, #add-expense-btn {
-            grid-column: 1 / -1;
-        }
-    }
-
+    .card { background-color: var(--card-light); border: 1px solid var(--border-light); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+    ul { list-style: none; }
+    li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border-light); animation: fadeIn 0.3s ease forwards; }
+    li:last-child { border-bottom: none; }
+    form { display: flex; flex-direction: column; gap: 1rem; }
+    .hidden { display: none !important; }
+    .toast { position: fixed; left: 50%; bottom: 2rem; transform: translateX(-50%); background-color: var(--card-light); color: var(--text-light); border: 1px solid var(--border-light); padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); z-index: 1000; animation: toast-in 0.3s ease forwards; }
+    .toast.error { background-color: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    .member-actions button { font-size: 0.8rem; padding: 0.2rem 0.5rem; margin-left: 0.5rem; width: auto; }
+    .split-toggle { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background-color: var(--bg-light); border-radius: 0.5rem; }
+    .split-toggle button { flex: 1; padding: 0.5rem; font-weight: 500; }
+    .split-toggle button.active { background-color: var(--card-light); color: var(--primary); box-shadow: var(--shadow); }
+    .split-toggle button:not(.active) { background: none; border: none; color: var(--secondary); }
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+    .modal-content { background: var(--card-light); padding: 2rem; border-radius: 0.75rem; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s ease; }
+    .modal-overlay.visible .modal-content { transform: scale(1); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-header button { width: auto; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
 
   <div class="container" id="app">
-    <!-- Header -->
-    <header>
-      <h1>SplitEase</h1>
-      <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
-    </header>
+    <header><h1>SplitEase</h1><button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">🌙</button></header>
 
-    <!-- DASHBOARD VIEW -->
     <section id="dashboard-view">
       <div class="card">
-        <h2>Welcome to SplitEase</h2>
-        <p style="color: var(--secondary);">The simple, offline-first way to split bills with friends and family. Track shared expenses for trips, apartments, or any group activity without needing an account. All your data stays on your device.</p>
+        <h2>My Groups</h2>
+        <ul id="trips-list"></ul>
+        <p id="empty-state" class="hidden" style="padding: 1rem 0;">No expense groups yet. Create one!</p>
       </div>
-
-      <div class="dashboard-grid">
-          <div class="card">
-            <h2>My Groups</h2>
-            <ul id="trips-list"></ul>
-            <p id="empty-state" class="hidden" style="padding: 1rem 0;">No expense groups yet. Create one to get started!</p>
-          </div>
-          <div class="card">
-            <h2>Create New Group</h2>
-            <form id="create-trip-form">
-              <input id="trip-name" placeholder="E.g., Goa Trip" required />
-              <input id="trip-currency" value="INR" placeholder="Currency" required />
-              <button id="create-trip-btn">Create Group</button>
-            </form>
-          </div>
+      <div class="card">
+        <h2>Create New Group</h2>
+        <form id="create-trip-form">
+          <input id="trip-name" placeholder="E.g., Goa Trip, Monthly Rent" required />
+          <input id="trip-currency" value="INR" placeholder="Currency (e.g., USD, EUR)" required />
+          <button id="create-trip-btn">Create Group</button>
+        </form>
       </div>
     </section>
 
-    <!-- TRIP VIEW -->
     <section id="trip-view" class="hidden">
-      <button id="back-btn" class="secondary" style="margin-bottom: 1rem; width: auto; padding: 0.75rem 1.25rem;">← All Groups</button>
+      <button id="back-btn" class="secondary" style="margin-bottom: 1rem;">← All Groups</button>
       <h2 id="trip-title"></h2>
 
-      <div class="desktop-grid">
-        <div class="card">
-          <h3>Members</h3>
-          <ul id="members-list"></ul>
-          <form id="add-member-form" style="margin-top: 1rem;">
-            <input id="member-name" placeholder="New member name" required />
-            <button id="add-member-btn">Add</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3>Add Expense</h3>
-          <form id="add-expense-form">
-            <input id="ai-expense-input" placeholder="✨ Try: Dinner for me and Sarah 750" />
-            <button type="button" id="parse-expense-btn" class="secondary">Parse with AI</button>
-            <hr style="border: none; border-top: 1px solid var(--border-light); margin: 0.5rem 0;">
-            <input id="expense-desc" placeholder="Description" required />
-            <input id="expense-amount" type="number" min="0.01" step="0.01" placeholder="Amount" required />
-            <select id="expense-payer" required></select>
-            <div id="expense-participants">
-               <p style="font-size: 0.9rem; color: var(--secondary);">Split with:</p>
-            </div>
-            <button id="add-expense-btn">Add Expense</button>
-          </form>
-        </div>
+      <div class="card">
+        <h3>Members</h3>
+        <ul id="members-list"></ul>
+        <form id="add-member-form" style="margin-top: 1rem;">
+          <input id="member-name" placeholder="Add one or more, separated by commas" required />
+          <button id="add-member-btn">Add Member(s)</button>
+        </form>
       </div>
 
       <div class="card">
-        <h3>Expenses</h3>
-        <ul id="expenses-list"></ul>
-      </div>
-
-      <div class="desktop-grid">
-        <div class="card">
-          <h3>Balances</h3>
-          <p style="font-size: 0.9rem; color: var(--secondary); margin-bottom: 0.5rem;">Who owes and who is owed.</p>
-          <ul id="balances-list"></ul>
-        </div>
-
-        <div class="card">
-          <h3>Settlements</h3>
-          <p style="font-size: 0.9rem; color: var(--secondary); margin-bottom: 0.5rem;">The easiest way to settle up.</p>
-          <ul id="settlements-list"></ul>
-        </div>
-      </div>
-
-      <div class="desktop-grid">
-        <div class="card">
-          <h3>Manage Data</h3>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button type="button" id="download-json-btn">Export to JSON</button>
-            <button type="button" id="download-csv-btn" class="secondary">Export to CSV</button>
-            <button type="button" id="import-btn" class="secondary">Import from JSON</button>
-            <input id="import-file" type="file" accept="application/json" style="display:none" />
+        <h3>Add Expense</h3>
+        <form id="add-expense-form">
+          <input id="expense-desc" placeholder="Description" required />
+          <input id="expense-amount" type="number" min="0.01" step="0.01" placeholder="Total Amount" required />
+          <input id="expense-date" type="date" required />
+          <select id="expense-payer" required></select>
+          <select id="expense-category" required>
+            <option value="" disabled selected>Select a category</option>
+            <option value="Food">Food & Drinks</option>
+            <option value="Travel">Travel & Transport</option>
+            <option value="Stay">Accommodation</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Other">Other</option>
+            <option value="Custom">Add New Category...</option>
+          </select>
+          <input id="custom-category-input" class="hidden" placeholder="Enter custom category name"/>
+          
+          <div class="split-toggle">
+              <button type="button" id="split-equal-btn" class="active">Split Equally</button>
+              <button type="button" id="split-unequal-btn">Split by Amount</button>
           </div>
-        </div>
-        
-        <div class="card" style="border-color: var(--danger);">
-          <h3>Danger Zone</h3>
-          <button type="button" id="delete-trip-btn" class="danger">Delete This Group</button>
+          
+          <div id="participants-equal">
+             <p style="font-size: 0.9rem; color: var(--secondary);">Split with:</p>
+          </div>
+          <div id="participants-unequal" class="hidden">
+             <p style="font-size: 0.9rem; color: var(--secondary);">Enter each person's share:</p>
+             <p id="unequal-total-tracker" style="font-weight: 500; text-align: right;"></p>
+          </div>
+          
+          <button id="add-expense-btn">Add Expense</button>
+        </form>
+      </div>
+      
+      <div class="card">
+        <h3>Summary & Balances</h3>
+        <div id="trip-stats" style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light);"></div>
+        <ul id="balances-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3>Settlements</h3>
+        <ul id="settlements-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3>Manage Group</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+           <button id="view-expenses-btn">View All Expenses</button>
+           <button id="delete-trip-btn" class="danger">Delete This Group</button>
         </div>
       </div>
     </section>
   </div>
+  
+  <div id="expenses-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>All Expenses</h2>
+        <button id="close-expenses-modal" class="secondary" style="font-size: 1.5rem; padding: 0.2rem 0.6rem; line-height: 1;">&times;</button>
+      </div>
+      <ul id="expenses-list-modal"></ul>
+    </div>
+  </div>
 
   <div id="toast-container"></div>
-
-  <!-- Main Application Script -->
   <script src="app.js"></script>
 </body>
 </html>
