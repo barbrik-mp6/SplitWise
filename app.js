@@ -1,21 +1,9 @@
-// SplitEase - A simple, offline-first expense splitting web app.
-// Vanilla JS, no dependencies, with Gemini AI integration.
 (function () {
   'use strict';
 
   /* ---------- Helper Functions ---------- */
   const $ = (id) => document.getElementById(id);
-  const uuid = () =>
-    crypto?.randomUUID?.() ||
-    ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
-      (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)
-    );
-
-  /**
-   * Displays a short-lived notification message (a "toast").
-   * @param {string} msg The message to display.
-   * @param {string} type The type of toast (e.g., 'error').
-   */
+  const uuid = () => crypto.randomUUID?.() || ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
   const toast = (msg, type = '') => {
     const el = document.createElement('div');
     el.className = 'toast' + (type ? ` ${type}` : '');
@@ -23,155 +11,61 @@
     $('toast-container').appendChild(el);
     setTimeout(() => el.remove(), 3000);
   };
-
-  /**
-   * Saves the current state to localStorage.
-   */
-  const save = () => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-    } catch (e) {
-      console.error("Error saving state to localStorage", e);
-      toast("Could not save data. Your browser storage might be full.", "error");
-    }
-  };
-
-  /**
-   * Loads the state from localStorage.
-   */
-  const load = () => {
-    try {
-      const storedState = localStorage.getItem(KEY);
-      if (storedState) {
-        state = JSON.parse(storedState);
-      }
-    } catch (e) {
-      console.error("Error loading state from localStorage", e);
-      state = getInitialState();
-    }
-  };
-  
   const currency = (n, code) => {
     try {
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(n);
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: code, minimumFractionDigits: 2 }).format(n);
     } catch (e) {
-      return `${code} ${(+n).toFixed(2)}`;
+        return `${code} ${(+n).toFixed(2)}`;
     }
   };
 
   /* ---------- State Management ---------- */
-  const KEY = 'splitEaseState';
+  const KEY = 'splitEaseState_v2';
   const getInitialState = () => ({
     trips: [],
     activeTripId: null,
-    theme: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+    theme: window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   });
   let state = getInitialState();
 
-  /* ---------- Gemini API Integration ---------- */
-
-  /**
-   * Calls the Gemini API to parse a natural language expense string.
-   * @param {string} text The user's input string.
-   * @param {Array<string>} memberNames Array of member names for context.
-   * @returns {Promise<object>} The parsed expense object.
-   */
-  async function callGeminiToParseExpense(text, memberNames) {
-    const apiKey = ""; // This will be handled by the execution environment
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-    const prompt = `
-      You are an expert expense parser. Analyze the following text and extract the expense details.
-      The available members in the group are: ${memberNames.join(', ')}.
-      The word "me" or "I" refers to the person who paid, but you should not determine the payer.
-      Your task is to identify the description, the total amount, and the list of participants from the available members.
-      If a name is mentioned that is not in the members list, do not include it.
-      If no participants are mentioned, assume the expense is for all members.
-      Text to parse: "${text}"
-    `;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            description: { type: "STRING" },
-            amount: { type: "NUMBER" },
-            participants: {
-              type: "ARRAY",
-              items: { type: "STRING" }
-            }
-          },
-          required: ["description", "amount", "participants"]
-        }
-      }
-    };
-    
-    // Fetch with exponential backoff
-    let response;
-    let delay = 1000;
-    for (let i = 0; i < 5; i++) {
-        try {
-            response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (response.ok) break;
-        } catch (error) {
-            // Network or other fetch error
-        }
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2;
-    }
-
-    if (!response || !response.ok) {
-        throw new Error('Failed to reach the AI model after multiple attempts.');
-    }
-
-    const result = await response.json();
-    if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0]) {
-      return JSON.parse(result.candidates[0].content.parts[0].text);
-    } else {
-      throw new Error('Invalid response structure from AI model.');
-    }
-  }
-
+  const save = () => { localStorage.setItem(KEY, JSON.stringify(state)); };
+  const load = () => {
+    const stored = localStorage.getItem(KEY);
+    if (stored) { state = JSON.parse(stored); }
+  };
 
   /* ---------- Core Application Logic ---------- */
-  
   function calculateBalances(trip) {
     const balances = {};
     trip.members.forEach(m => balances[m.id] = 0);
-    
+
     trip.expenses.forEach(ex => {
-      if (!ex.participantIds || ex.participantIds.length === 0) return;
-      const share = ex.amount / ex.participantIds.length;
-      balances[ex.payerId] += ex.amount;
-      ex.participantIds.forEach(pid => {
-        balances[pid] -= share;
-      });
+        balances[ex.payerId] += ex.amount;
+        if (ex.splitType === 'equal') {
+            if (!ex.participantIds || ex.participantIds.length === 0) return;
+            const share = ex.amount / ex.participantIds.length;
+            ex.participantIds.forEach(pid => { balances[pid] -= share; });
+        } else { // 'unequal'
+            for (const [memberId, share] of Object.entries(ex.shares)) {
+                balances[memberId] -= share;
+            }
+        }
     });
 
-    Object.keys(balances).forEach(k => {
-      if (Math.abs(balances[k]) < 0.005) balances[k] = 0;
-    });
-
+    Object.keys(balances).forEach(k => { if (Math.abs(balances[k]) < 0.01) balances[k] = 0; });
     return balances;
   }
-
+  
   function minimizeSettlements(balances, members) {
     const debtors = [];
     const creditors = [];
 
     for (const [id, amount] of Object.entries(balances)) {
-      if (amount < -0.01) debtors.push({ id, amount });
+      if (amount < -0.01) debtors.push({ id, amount: -amount });
       else if (amount > 0.01) creditors.push({ id, amount });
     }
 
-    debtors.sort((a, b) => a.amount - b.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
     creditors.sort((a, b) => b.amount - a.amount);
 
     const settlements = [];
@@ -180,7 +74,7 @@
     while (i < debtors.length && j < creditors.length) {
       const debtor = debtors[i];
       const creditor = creditors[j];
-      const paymentAmount = Math.min(-debtor.amount, creditor.amount);
+      const paymentAmount = Math.min(debtor.amount, creditor.amount);
 
       settlements.push({
         from: members.find(m => m.id === debtor.id).name,
@@ -188,7 +82,7 @@
         amount: +paymentAmount.toFixed(2)
       });
 
-      debtor.amount += paymentAmount;
+      debtor.amount -= paymentAmount;
       creditor.amount -= paymentAmount;
 
       if (Math.abs(debtor.amount) < 0.01) i++;
@@ -198,19 +92,17 @@
   }
 
   /* ---------- Rendering Functions ---------- */
-
   function render() {
     document.documentElement.setAttribute('data-theme', state.theme);
     $('theme-toggle').textContent = state.theme === 'dark' ? '☀️' : '🌙';
-
     if (state.activeTripId) {
-      $('dashboard-view').classList.add('hidden');
-      $('trip-view').classList.remove('hidden');
-      renderTripView();
+        $('dashboard-view').classList.add('hidden');
+        $('trip-view').classList.remove('hidden');
+        renderTripView();
     } else {
-      $('dashboard-view').classList.remove('hidden');
-      $('trip-view').classList.add('hidden');
-      renderDashboard();
+        $('dashboard-view').classList.remove('hidden');
+        $('trip-view').classList.add('hidden');
+        renderDashboard();
     }
   }
 
@@ -228,7 +120,6 @@
     state.trips.forEach(trip => {
       const li = document.createElement('li');
       li.style.cursor = 'pointer';
-      li.style.fontWeight = '500';
       li.innerHTML = `<span>${trip.name} (${trip.currency})</span><span style="font-size: 1.25rem; color: var(--secondary);">→</span>`;
       li.onclick = () => {
         state.activeTripId = trip.id;
@@ -241,89 +132,126 @@
 
   function renderTripView() {
     const trip = state.trips.find(t => t.id === state.activeTripId);
-    if (!trip) {
-      state.activeTripId = null;
-      render();
-      return;
-    }
+    if (!trip) { state.activeTripId = null; render(); return; }
 
     $('trip-title').textContent = `${trip.name}`;
-
-    const membersList = $('members-list');
-    membersList.innerHTML = '';
-    trip.members.forEach(m => {
-      const li = document.createElement('li');
-      li.textContent = m.name;
-      membersList.appendChild(li);
-    });
-
-    const payerSelect = $('expense-payer');
-    payerSelect.innerHTML = '';
-    const participantsDiv = $('expense-participants');
-    participantsDiv.innerHTML = '<p style="font-size: 0.9rem; color: var(--secondary);">Split with:</p>';
     
+    $('expense-date').valueAsDate = new Date();
+
+    renderMembers(trip);
+    renderPayerAndParticipants(trip);
+    renderBalancesAndStats(trip);
+    renderSettlements(trip);
+  }
+
+  function renderMembers(trip) {
+    const list = $('members-list');
+    list.innerHTML = '';
     trip.members.forEach(m => {
-      const option = document.createElement('option');
-      option.value = m.id;
-      option.textContent = m.name;
-      payerSelect.appendChild(option);
-
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'display: flex; align-items: center; margin-top: 0.5rem;';
-      wrapper.innerHTML = `
-        <input type="checkbox" id="chk-${m.id}" value="${m.id}" checked style="width: 1.1rem; height: 1.1rem; margin-right: 0.75rem;">
-        <label for="chk-${m.id}">${m.name}</label>
-      `;
-      participantsDiv.appendChild(wrapper);
-    });
-
-    const expensesList = $('expenses-list');
-    expensesList.innerHTML = '';
-    [...trip.expenses].reverse().forEach(ex => {
-      const payer = trip.members.find(m => m.id === ex.payerId)?.name || 'N/A';
       const li = document.createElement('li');
-      li.innerHTML = `<div><strong>${ex.description}</strong><br><em style="font-size:0.9rem; color: var(--secondary);">Paid by ${payer}</em></div> <div>${currency(ex.amount, trip.currency)}</div>`;
-      expensesList.appendChild(li);
+      li.innerHTML = `<span>${m.name}</span>
+        <div class="member-actions">
+            <button class="secondary edit-member" data-id="${m.id}">Edit</button>
+            <button class="danger delete-member" data-id="${m.id}">Del</button>
+        </div>`;
+      list.appendChild(li);
     });
+  }
 
+  function renderPayerAndParticipants(trip) {
+    const payerSelect = $('expense-payer');
+    const participantsEqualDiv = $('participants-equal');
+    const participantsUnequalDiv = $('participants-unequal');
+    payerSelect.innerHTML = '';
+    participantsEqualDiv.innerHTML = '<p style="font-size: 0.9rem; color: var(--secondary);">Split with:</p>';
+    participantsUnequalDiv.innerHTML = '<p style="font-size: 0.9rem; color: var(--secondary);">Enter each person\'s share:</p><p id="unequal-total-tracker" style="font-weight: 500; text-align: right;"></p>';
+
+    if (trip.members.length === 0) {
+        payerSelect.innerHTML = '<option>Add members first</option>';
+        return;
+    }
+
+    trip.members.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m.id;
+        option.textContent = m.name;
+        payerSelect.appendChild(option);
+
+        const eqWrapper = document.createElement('div');
+        eqWrapper.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+        eqWrapper.innerHTML = `<input type="checkbox" id="chk-${m.id}" value="${m.id}" checked style="width: auto;"> <label for="chk-${m.id}">${m.name}</label>`;
+        participantsEqualDiv.appendChild(eqWrapper);
+        
+        const unWrapper = document.createElement('div');
+        unWrapper.style.cssText = 'display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem;';
+        unWrapper.innerHTML = `<label for="uneq-${m.id}" style="flex-basis: 50%;">${m.name}</label>
+                               <input type="number" id="uneq-${m.id}" data-member-id="${m.id}" min="0" step="0.01" value="0.00" style="flex-grow: 1;">`;
+        participantsUnequalDiv.appendChild(unWrapper);
+    });
+  }
+
+  function renderBalancesAndStats(trip) {
     const balances = calculateBalances(trip);
     const balancesList = $('balances-list');
     balancesList.innerHTML = '';
-    Object.entries(balances).forEach(([id, amount]) => {
-      const name = trip.members.find(m => m.id === id)?.name || 'N/A';
-      const li = document.createElement('li');
-      let amountText;
-      if (Math.abs(amount) < 0.01) {
-        amountText = `is settled up`;
-        li.style.color = 'var(--secondary)';
-      } else if (amount < 0) {
-        amountText = `owes ${currency(-amount, trip.currency)}`;
-        li.style.color = '#f59e0b';
-      } else {
-        amountText = `is owed ${currency(amount, trip.currency)}`;
-        li.style.color = '#22c55e';
-      }
-      li.innerHTML = `<span>${name}</span> <span>${amountText}</span>`;
-      balancesList.appendChild(li);
-    });
 
+    Object.entries(balances).forEach(([id, amount]) => {
+        const name = trip.members.find(m => m.id === id)?.name || 'N/A';
+        const li = document.createElement('li');
+        let amountText;
+        if (Math.abs(amount) < 0.01) {
+            amountText = `is settled up`; li.style.color = 'var(--secondary)';
+        } else if (amount < 0) {
+            amountText = `owes ${currency(-amount, trip.currency)}`; li.style.color = 'var(--warning)';
+        } else {
+            amountText = `is owed ${currency(amount, trip.currency)}`; li.style.color = 'var(--success)';
+        }
+        li.innerHTML = `<span><strong>${name}</strong> ${amountText}</span>`;
+        balancesList.appendChild(li);
+    });
+    
+    const totalSpent = trip.expenses.reduce((sum, ex) => sum + ex.amount, 0);
+    $('trip-stats').innerHTML = `<p><strong>Total Group Spending:</strong> ${currency(totalSpent, trip.currency)}</p>`;
+  }
+
+  function renderSettlements(trip) {
+    const balances = calculateBalances(trip);
     const settlementsList = $('settlements-list');
     settlementsList.innerHTML = '';
     const settlements = minimizeSettlements(balances, trip.members);
     if (settlements.length === 0) {
-      settlementsList.innerHTML = '<li>All debts are settled! 🎉</li>';
+        settlementsList.innerHTML = '<li>All debts are settled! 🎉</li>';
     } else {
-      settlements.forEach(s => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>${s.from}</strong> <span style="color: var(--secondary); margin: 0 0.5rem;">→</span> <strong>${s.to}</strong> <span style="margin-left: auto;">${currency(s.amount,trip.currency)}</span>`;
-        li.style.alignItems = 'baseline';
-        settlementsList.appendChild(li);
-      });
+        settlements.forEach(s => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${s.from}</strong> → <strong>${s.to}</strong>: <span>${currency(s.amount,trip.currency)}</span>`;
+            settlementsList.appendChild(li);
+        });
     }
   }
 
-  /* ---------- Event Handlers ---------- */
+  function renderExpensesModal(trip) {
+    const list = $('expenses-list-modal');
+    list.innerHTML = '';
+    if (trip.expenses.length === 0) {
+        list.innerHTML = '<li>No expenses have been added yet.</li>';
+        return;
+    }
+    [...trip.expenses].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(ex => {
+        const payer = trip.members.find(m => m.id === ex.payerId)?.name || 'N/A';
+        const li = document.createElement('li');
+        li.innerHTML = `<div><strong>${ex.description}</strong> (${ex.category})<br>
+                        <em style="font-size:0.9rem; color: var(--secondary);">
+                           Paid by ${payer} on ${new Date(ex.date).toLocaleDateString()}
+                        </em>
+                      </div> 
+                      <div style="text-align: right;">${currency(ex.amount, trip.currency)}</div>`;
+        list.appendChild(li);
+    });
+  }
 
+  /* ---------- Event Handlers ---------- */
+  
   $('create-trip-form').onsubmit = e => {
     e.preventDefault();
     const name = $('trip-name').value.trim();
@@ -336,96 +264,135 @@
     toast('Group created successfully!');
   };
 
+  $('back-btn').onclick = () => { state.activeTripId = null; save(); render(); };
+
   $('add-member-form').onsubmit = e => {
     e.preventDefault();
     const trip = state.trips.find(t => t.id === state.activeTripId);
     if (!trip) return;
-    const name = $('member-name').value.trim();
-    if (!name) return;
-    trip.members.push({ id: uuid(), name });
+    const names = $('member-name').value.trim().split(',').map(name => name.trim()).filter(Boolean);
+    if (names.length === 0) return;
+    names.forEach(name => trip.members.push({ id: uuid(), name }));
     e.target.reset();
     save();
-    render();
-    toast('Member added.');
+    renderTripView();
+    toast(`${names.length} member(s) added.`);
   };
+
+  $('members-list').onclick = e => {
+    const trip = state.trips.find(t => t.id === state.activeTripId);
+    if (!trip) return;
+    const target = e.target;
+    const memberId = target.dataset.id;
+    if (!memberId) return;
+
+    if (target.classList.contains('delete-member')) {
+        const isUsed = trip.expenses.some(ex => ex.payerId === memberId || ex.participantIds?.includes(memberId) || (ex.shares && ex.shares[memberId]));
+        if (isUsed) {
+            toast('Cannot delete member involved in expenses.', 'error');
+            return;
+        }
+        if (confirm('Are you sure you want to delete this member?')) {
+            trip.members = trip.members.filter(m => m.id !== memberId);
+            save(); renderTripView(); toast('Member deleted.');
+        }
+    } else if (target.classList.contains('edit-member')) {
+        const member = trip.members.find(m => m.id === memberId);
+        const newName = prompt('Enter new name:', member.name);
+        if (newName && newName.trim()) {
+            member.name = newName.trim();
+            save(); renderTripView(); toast('Member updated.');
+        }
+    }
+  };
+
+  $('expense-category').onchange = () => {
+    const customInput = $('custom-category-input');
+    if ($('expense-category').value === 'Custom') {
+        customInput.classList.remove('hidden');
+        customInput.required = true;
+    } else {
+        customInput.classList.add('hidden');
+        customInput.required = false;
+    }
+  };
+
+  $('split-equal-btn').onclick = () => {
+    $('split-equal-btn').classList.add('active');
+    $('split-unequal-btn').classList.remove('active');
+    $('participants-equal').classList.remove('hidden');
+    $('participants-unequal').classList.add('hidden');
+  };
+  $('split-unequal-btn').onclick = () => {
+    $('split-unequal-btn').classList.add('active');
+    $('split-equal-btn').classList.remove('active');
+    $('participants-unequal').classList.remove('hidden');
+    $('participants-equal').classList.add('hidden');
+  };
+  
+  $('participants-unequal').addEventListener('input', () => {
+    const inputs = [...document.querySelectorAll('#participants-unequal input')];
+    const sum = inputs.reduce((total, input) => total + parseFloat(input.value || 0), 0);
+    const totalAmount = parseFloat($('expense-amount').value || 0);
+    const tracker = $('unequal-total-tracker');
+    tracker.textContent = `Total: ${sum.toFixed(2)} / ${totalAmount.toFixed(2)}`;
+    tracker.style.color = Math.abs(sum - totalAmount) < 0.01 ? 'var(--success)' : 'var(--danger)';
+  });
 
   $('add-expense-form').onsubmit = e => {
     e.preventDefault();
     const trip = state.trips.find(t => t.id === state.activeTripId);
-    if (!trip) return;
-    const desc = $('expense-desc').value.trim();
-    const amount = parseFloat($('expense-amount').value);
-    if (!desc || !(amount > 0)) return;
-    const payerId = $('expense-payer').value;
-    const participantIds = [...document.querySelectorAll('#expense-participants input:checked')].map(c => c.value);
-    if (participantIds.length === 0) {
-      toast('Please select at least one participant.', 'error');
+    if (!trip || trip.members.length === 0) { toast('Add members first!', 'error'); return; }
+
+    const newExpense = {
+        id: uuid(),
+        description: $('expense-desc').value.trim(),
+        amount: parseFloat($('expense-amount').value),
+        date: $('expense-date').value,
+        payerId: $('expense-payer').value,
+        category: $('expense-category').value === 'Custom' ? $('custom-category-input').value.trim() : $('expense-category').value,
+        splitType: $('split-equal-btn').classList.contains('active') ? 'equal' : 'unequal',
+    };
+    
+    if (!newExpense.description || !newExpense.amount || !newExpense.date || !newExpense.category) {
+      toast('Please fill out all expense fields.', 'error');
       return;
     }
-    trip.expenses.push({ id: uuid(), description: desc, amount: +amount.toFixed(2), payerId, participantIds });
+
+    if (newExpense.splitType === 'equal') {
+        newExpense.participantIds = [...document.querySelectorAll('#participants-equal input:checked')].map(c => c.value);
+        if (newExpense.participantIds.length === 0) { toast('Select at least one participant.', 'error'); return; }
+    } else {
+        const inputs = [...document.querySelectorAll('#participants-unequal input')];
+        const sum = inputs.reduce((total, input) => total + parseFloat(input.value || 0), 0);
+        if (Math.abs(sum - newExpense.amount) > 0.01) { toast('The sum of shares must equal the total amount.', 'error'); return; }
+        
+        newExpense.shares = {};
+        inputs.forEach(input => {
+            const share = parseFloat(input.value || 0);
+            if (share > 0) newExpense.shares[input.dataset.memberId] = share;
+        });
+    }
+
+    trip.expenses.push(newExpense);
     e.target.reset();
-    $('ai-expense-input').value = '';
+    $('expense-date').valueAsDate = new Date();
+    $('expense-category').value = "";
     save();
-    render();
+    renderTripView();
     toast('Expense added.');
   };
-
-  $('parse-expense-btn').onclick = async () => {
-    const text = $('ai-expense-input').value.trim();
+  
+  $('view-expenses-btn').onclick = () => {
     const trip = state.trips.find(t => t.id === state.activeTripId);
-    if (!text || !trip || trip.members.length === 0) {
-      toast('Please add members and enter text to parse.', 'error');
-      return;
-    }
-
-    const btn = $('parse-expense-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Parsing...';
-
-    try {
-      const memberNames = trip.members.map(m => m.name);
-      const parsed = await callGeminiToParseExpense(text, memberNames);
-
-      $('expense-desc').value = parsed.description || '';
-      $('expense-amount').value = parsed.amount || '';
-
-      // Uncheck all participants first
-      trip.members.forEach(m => {
-        const checkbox = $(`chk-${m.id}`);
-        if (checkbox) checkbox.checked = false;
-      });
-
-      // Check participants returned by the AI
-      if (parsed.participants && parsed.participants.length > 0) {
-        parsed.participants.forEach(name => {
-          const member = trip.members.find(m => m.name.toLowerCase() === name.toLowerCase());
-          if (member) {
-            const checkbox = $(`chk-${member.id}`);
-            if (checkbox) checkbox.checked = true;
-          }
-        });
-      } else { // if AI returns no one, assume all
-          trip.members.forEach(m => {
-            const checkbox = $(`chk-${m.id}`);
-            if (checkbox) checkbox.checked = true;
-        });
-      }
-      toast('Expense details parsed!');
-    } catch (error) {
-      console.error('Gemini API Error:', error);
-      toast('Could not parse expense with AI.', 'error');
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = 'Parse with AI';
+    if (trip) {
+        renderExpensesModal(trip);
+        $('expenses-modal').classList.add('visible');
     }
   };
-
-  $('back-btn').onclick = () => {
-    state.activeTripId = null;
-    save();
-    render();
-  };
-
+  $('close-expenses-modal').onclick = () => { $('expenses-modal').classList.remove('visible'); };
+  $('expenses-modal').onclick = e => { if (e.target === $('expenses-modal')) $('expenses-modal').classList.remove('visible'); };
+  
   $('delete-trip-btn').onclick = () => {
     if (confirm('Are you sure you want to permanently delete this group and all its data?')) {
       state.trips = state.trips.filter(t => t.id !== state.activeTripId);
@@ -441,66 +408,10 @@
     save();
     render();
   };
-
-  /* ---------- Data Export / Import ---------- */
-
-  $('download-json-btn').onclick = () => {
-    const trip = state.trips.find(t => t.id === state.activeTripId);
-    if (!trip) return;
-    const blob = new Blob([JSON.stringify(trip, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${trip.name.replace(/\s+/g, '_')}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('JSON data exported.');
-  };
   
-  $('download-csv-btn').onclick = () => {
-    const trip = state.trips.find(t => t.id === state.activeTripId);
-    if (!trip) return;
-    let csvContent = "Description,Amount,Currency,Payer,Participants\r\n";
-    trip.expenses.forEach(ex => {
-        const payer = trip.members.find(m => m.id === ex.payerId)?.name || 'N/A';
-        const participants = ex.participantIds.map(pid => trip.members.find(m => m.id === pid)?.name || 'N/A').join('; ');
-        const description = `"${ex.description.replace(/"/g, '""')}"`;
-        const row = [description, ex.amount, trip.currency, payer, `"${participants}"`].join(',');
-        csvContent += row + "\r\n";
-    });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${trip.name.replace(/\s+/g, '_')}_expenses.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('CSV data exported.');
-  };
-
-  $('import-btn').onclick = () => $('import-file').click();
-  
-  $('import-file').onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!data.name || !data.currency || !Array.isArray(data.members) || !Array.isArray(data.expenses)) {
-          throw new Error('Invalid file structure.');
-        }
-        const newId = uuid();
-        state.trips.push({ ...data, id: newId });
-        save();
-        renderDashboard();
-        toast('Trip imported successfully!');
-      } catch (err) {
-        toast('Invalid or corrupted JSON file.', 'error');
-        console.error("Import error:", err);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+  /* ---------- App Initialization ---------- */
+  load();
+  render();
 
   /* ---------- Service Worker Registration ---------- */
   if ('serviceWorker' in navigator) {
@@ -510,9 +421,5 @@
         });
     });
   }
-
-  /* ---------- App Initialization ---------- */
-  load();
-  render();
 })();
-
+        
